@@ -7,7 +7,10 @@
   font-size: 90%;
 }
 
+/* When applied to html/body, these set the full-page background */
 .theme-light {
+  background-color: #F0F4FF !important;
+  color: #0F172A !important;
   --bg: #F0F4FF;
   --bg-surface: #FFFFFF;
   --bg-surface-2: #F8FAFF;
@@ -47,6 +50,8 @@
 }
 
 .theme-dark {
+  background-color: #080D1A !important;
+  color: #F1F5F9 !important;
   --bg: #080D1A;
   --bg-surface: #111827;
   --bg-surface-2: #1A2236;

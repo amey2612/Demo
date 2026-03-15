@@ -34,6 +34,11 @@ export function AppProvider({ children }) {
 
     useEffect(() => {
         lsSet('wpt_theme', theme);
+        // Apply theme class to html + body so CSS variables (--bg, --text-primary, etc.)
+        // cascade from the document root — fixes "invisible text" on page background in dark mode
+        const cls = theme === 'dark' ? 'theme-dark' : 'theme-light';
+        document.documentElement.className = cls;
+        document.body.className = cls;
     }, [theme]);
 
     // Save all main data structures on change
