@@ -3,9 +3,10 @@ import { useAppContext } from '../context/AppContext';
 
 export default function ActionHub() {
     const {
-        currentUserName, isLead, activeCycle, setView, setDashCycleId, planningCycles,
+        currentUserName, isLead, activeCycle, setView, setDashCycleId,
         isParticipating, showConfirm, memberPlans, taskAssignments, setTaskAssignments,
-        setMemberPlans, setCategoryAllocations, setPlanningCycles, save, showToast, getEntry
+        setMemberPlans, setCategoryAllocations, setPlanningCycles, setBacklogEntries,
+        backlogEntries, showToast, getEntry
     } = useAppContext();
 
     const cycle = activeCycle();
@@ -24,20 +25,22 @@ export default function ActionHub() {
             const pids = memberPlans.filter(p => p.cycleId === c.id).map(p => p.id);
             const affectedEntryIds = [...new Set(taskAssignments.filter(t => pids.includes(t.memberPlanId)).map(t => t.backlogEntryId))];
 
+            // Determine which entries have no remaining references before removing assignments
+            const remainingAssignments = taskAssignments.filter(t => !pids.includes(t.memberPlanId));
+            const entriesToReset = affectedEntryIds.filter(eid =>
+                !remainingAssignments.some(t => t.backlogEntryId === eid)
+            );
+
             setTaskAssignments(prev => prev.filter(t => !pids.includes(t.memberPlanId)));
             setMemberPlans(prev => prev.filter(p => p.cycleId !== c.id));
             setCategoryAllocations(prev => prev.filter(a => a.cycleId !== c.id));
-
-            for (const eid of affectedEntryIds) {
-                const e = getEntry(eid);
-                if (e && e.status === 'IN_PLAN') {
-                    const anyRef = taskAssignments.some(t => t.backlogEntryId === eid);
-                    if (!anyRef) e.status = 'AVAILABLE';
-                }
-            }
-
+            setBacklogEntries(prev => prev.map(e =>
+                entriesToReset.includes(e.id) && e.status === 'IN_PLAN'
+                    ? { ...e, status: 'AVAILABLE' }
+                    : e
+            ));
             setPlanningCycles(prev => prev.filter(x => x.id !== c.id));
-            save();
+
             showToast('Planning has been canceled.');
             setView('hub');
         }, 'Yes, Cancel Planning', true);
@@ -46,22 +49,29 @@ export default function ActionHub() {
     const confirmFinishWeek = () => {
         if (!cycle || cycle.state !== 'FROZEN') return;
         const pids = memberPlans.filter(p => p.cycleId === cycle.id).map(p => p.id);
-        const allDone = taskAssignments.filter(t => pids.includes(t.memberPlanId)).every(t => t.progressStatus === 'COMPLETED');
+        const cycleTAs = taskAssignments.filter(t => pids.includes(t.memberPlanId));
+        const allDone = cycleTAs.every(t => t.progressStatus === 'COMPLETED');
         const msg = allDone
             ? 'All tasks are completed! Close out this week?'
             : 'Some tasks are not finished yet. Those backlog items will go back to the backlog. Are you sure?';
 
         showConfirm('Finish This Week?', msg, () => {
-            cycle.state = 'COMPLETED';
-            const entryIds = [...new Set(taskAssignments.filter(t => pids.includes(t.memberPlanId)).map(t => t.backlogEntryId))];
+            const entryIds = [...new Set(cycleTAs.map(t => t.backlogEntryId))];
+
+            // Determine new status for each backlog entry
+            const entryStatusMap = {};
             for (const eid of entryIds) {
-                const tas = taskAssignments.filter(t => pids.includes(t.memberPlanId) && t.backlogEntryId === eid);
-                const e = getEntry(eid);
-                if (!e) continue;
-                if (tas.every(t => t.progressStatus === 'COMPLETED')) e.status = 'COMPLETED';
-                else e.status = 'AVAILABLE';
+                const tas = cycleTAs.filter(t => t.backlogEntryId === eid);
+                entryStatusMap[eid] = tas.every(t => t.progressStatus === 'COMPLETED') ? 'COMPLETED' : 'AVAILABLE';
             }
-            save();
+
+            setPlanningCycles(prev => prev.map(c =>
+                c.id === cycle.id ? { ...c, state: 'COMPLETED' } : c
+            ));
+            setBacklogEntries(prev => prev.map(e =>
+                entryStatusMap[e.id] !== undefined ? { ...e, status: entryStatusMap[e.id] } : e
+            ));
+
             showToast('This week is done! You can start planning a new week.');
             setView('hub');
         }, 'Yes, Finish This Week');

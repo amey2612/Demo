@@ -5,7 +5,7 @@ export default function CycleSetup() {
     const {
         goHome, activeMembers, planningCycles, setPlanningCycles, activeCycle,
         categoryAllocations, setCategoryAllocations, memberPlans, setMemberPlans,
-        save, showToast, uid
+        showToast, uid
     } = useAppContext();
 
     const isTuesday = (d) => {
@@ -72,52 +72,53 @@ export default function CycleSetup() {
         if (pctSum() !== 100) { setCycleError('Percentages must add up to 100.'); return; }
         if (!isTuesday(cycleForm.planningDate)) { setCycleError('Please pick a Tuesday.'); return; }
 
-        let c = activeCycle();
-        if (!c) {
-            c = {
-                id: uid(),
-                state: 'PLANNING',
-                createdAt: new Date().toISOString()
-            };
-            setPlanningCycles([...planningCycles, c]);
-        } else {
-            setPlanningCycles(planningCycles.map(pc => pc.id === c.id ? { ...pc, state: 'PLANNING' } : pc));
-        }
+        const existing = activeCycle();
+        const cycleId = existing?.id || uid();
 
-        c.planningDate = cycleForm.planningDate;
-        c.executionStartDate = addDays(cycleForm.planningDate, 1);
-        c.executionEndDate = addDays(cycleForm.planningDate, 6);
-        c.participatingMemberIds = cycleForm.memberIds;
-        c.teamCapacity = cycleForm.memberIds.length * 30;
-        c.state = 'PLANNING';
+        const newCycle = {
+            id: cycleId,
+            state: 'PLANNING',
+            planningDate: cycleForm.planningDate,
+            executionStartDate: addDays(cycleForm.planningDate, 1),
+            executionEndDate: addDays(cycleForm.planningDate, 6),
+            participatingMemberIds: cycleForm.memberIds,
+            teamCapacity: cycleForm.memberIds.length * 30,
+            createdAt: existing?.createdAt || new Date().toISOString()
+        };
 
-        // Create allocations
-        const newAllocs = categoryAllocations.filter(a => a.cycleId !== c.id);
-        for (const cat of ['CLIENT_FOCUSED', 'TECH_DEBT', 'R_AND_D']) {
-            newAllocs.push({
+        setPlanningCycles(prev => [
+            ...prev.filter(pc => pc.id !== cycleId),
+            newCycle
+        ]);
+
+        // Create allocations (replace existing ones for this cycle)
+        const newAllocs = [
+            ...categoryAllocations.filter(a => a.cycleId !== cycleId),
+            ...['CLIENT_FOCUSED', 'TECH_DEBT', 'R_AND_D'].map(cat => ({
                 id: uid(),
-                cycleId: c.id,
+                cycleId,
                 category: cat,
-                percentage: cat === 'CLIENT_FOCUSED' ? parseInt(cycleForm.pctClient) : cat === 'TECH_DEBT' ? parseInt(cycleForm.pctTech) : parseInt(cycleForm.pctRD),
+                percentage: cat === 'CLIENT_FOCUSED' ? parseInt(cycleForm.pctClient)
+                    : cat === 'TECH_DEBT' ? parseInt(cycleForm.pctTech)
+                        : parseInt(cycleForm.pctRD),
                 budgetHours: calcBudget(cat)
-            });
-        }
+            }))
+        ];
         setCategoryAllocations(newAllocs);
 
-        // Create member plans
-        const newPlans = memberPlans.filter(p => p.cycleId !== c.id);
-        for (const mid of cycleForm.memberIds) {
-            newPlans.push({
+        // Create member plans (replace existing ones for this cycle)
+        const newPlans = [
+            ...memberPlans.filter(p => p.cycleId !== cycleId),
+            ...cycleForm.memberIds.map(mid => ({
                 id: uid(),
-                cycleId: c.id,
+                cycleId,
                 memberId: mid,
                 isReady: false,
                 totalPlannedHours: 0
-            });
-        }
+            }))
+        ];
         setMemberPlans(newPlans);
 
-        save();
         showToast('Planning is open! Team members can now plan their work.');
         goHome();
     };

@@ -22,8 +22,15 @@ export function AppProvider({ children }) {
     const [progressUpdates, setProgressUpdates] = useState(() => lsGet('wpt_progressUpdates', []));
 
     const [currentUserId, setCurrentUserId] = useState(null);
-
     const [dashCycleId, setDashCycleId] = useState(null);
+
+    // Confirm modal state
+    const [confirmModal, setConfirmModal] = useState(false);
+    const [confirmTitle, setConfirmTitle] = useState('');
+    const [confirmText, setConfirmText] = useState('');
+    const [confirmAction, setConfirmAction] = useState(null);
+    const [confirmYes, setConfirmYes] = useState('Yes');
+    const [confirmDanger, setConfirmDanger] = useState(false);
 
     useEffect(() => {
         lsSet('wpt_theme', theme);
@@ -56,6 +63,20 @@ export function AppProvider({ children }) {
     const showError = (m) => {
         setErrorMsgState(m);
         setTimeout(() => setErrorMsgState(''), 5000);
+    };
+
+    // save() is a no-op in React — state is auto-persisted via useEffect above.
+    // Components call save() after state updates; those updates trigger useEffect.
+    const save = () => { };
+
+    // Confirm modal
+    const showConfirm = (title, text, action, yesLabel = 'Yes', isDanger = false) => {
+        setConfirmTitle(title);
+        setConfirmText(text);
+        setConfirmAction(() => action);
+        setConfirmYes(yesLabel);
+        setConfirmDanger(isDanger);
+        setConfirmModal(true);
     };
 
     const init = () => {
@@ -99,6 +120,27 @@ export function AppProvider({ children }) {
     const catLabel = (c) => ({ CLIENT_FOCUSED: 'Client Focused', TECH_DEBT: 'Tech Debt', R_AND_D: 'R&D' }[c] || c);
     const statusLabel = (s) => ({ NOT_STARTED: 'Not Started', IN_PROGRESS: 'In Progress', COMPLETED: 'Completed', BLOCKED: 'Blocked' }[s] || s);
 
+    // Backlog entry lookup
+    const getEntry = (id) => backlogEntries.find(e => e.id === id);
+
+    // Category budget helpers (based on active cycle allocations)
+    const getCatBudget = (cat) => {
+        const c = activeCycle();
+        if (!c) return 0;
+        const a = categoryAllocations.find(x => x.cycleId === c.id && x.category === cat);
+        return a ? a.budgetHours : 0;
+    };
+
+    // Category claimed hours (sum of committed hours for this category across all member plans in active cycle)
+    const getCatClaimed = (cat) => {
+        const c = activeCycle();
+        if (!c) return 0;
+        const pids = memberPlans.filter(p => p.cycleId === c.id).map(p => p.id);
+        return taskAssignments
+            .filter(t => pids.includes(t.memberPlanId) && getEntry(t.backlogEntryId)?.category === cat)
+            .reduce((s, t) => s + t.committedHours, 0);
+    };
+
     // Identity logic
     const selectIdentity = (id) => {
         setCurrentUserId(id);
@@ -122,9 +164,17 @@ export function AppProvider({ children }) {
             progressUpdates, setProgressUpdates,
             currentUserId, setCurrentUserId,
             dashCycleId, setDashCycleId,
+            // Confirm modal state
+            confirmModal, setConfirmModal,
+            confirmTitle, confirmText, confirmAction,
+            confirmYes, confirmDanger,
+            // Functions
+            save, showConfirm,
             goHome, init, activeMembers, getMember, currentUserName, isLead,
             activeCycle, frozenCycle, isParticipating,
-            catLabel, statusLabel, selectIdentity,
+            catLabel, statusLabel,
+            getEntry, getCatBudget, getCatClaimed,
+            selectIdentity,
             uid
         }}>
             {children}

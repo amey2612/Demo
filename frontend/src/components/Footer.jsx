@@ -7,7 +7,7 @@ export default function Footer() {
         backlogEntries, setBacklogEntries, planningCycles, setPlanningCycles,
         categoryAllocations, setCategoryAllocations, memberPlans, setMemberPlans,
         taskAssignments, setTaskAssignments, progressUpdates, setProgressUpdates,
-        showConfirm, showToast, uid, save, currentUserId, setCurrentUserId, setView
+        showConfirm, showToast, uid, setCurrentUserId, setView
     } = useAppContext();
 
     const [importModal, setImportModal] = useState(false);
@@ -72,15 +72,11 @@ export default function Footer() {
         setTaskAssignments(d.taskAssignments || []);
         setProgressUpdates(d.progressUpdates || []);
 
-        save();
         setImportModal(false);
         setImportData(null);
         setCurrentUserId(null);
         setView('identity');
-        showToast('Your data was loaded!')
-
-        // In React, reloading entirely might be safest to guarantee fresh state everywhere if context gets tricky,
-        // but the state setters above should cover everything. We'll rely on the setters.
+        showToast('Your data was loaded!');
     };
 
     const seedData = () => {
@@ -90,10 +86,9 @@ export default function Footer() {
             const m3 = { id: uid(), name: 'Carol Singh', isLead: false, isActive: true, createdAt: new Date().toISOString() };
             const m4 = { id: uid(), name: 'Dave Kim', isLead: false, isActive: true, createdAt: new Date().toISOString() };
 
-            const newMembers = [m1, m2, m3, m4];
-            setTeamMembers(newMembers);
+            setTeamMembers([m1, m2, m3, m4]);
 
-            const entries = [
+            setBacklogEntries([
                 { id: uid(), title: 'Customer onboarding redesign', description: 'Revamp the onboarding flow.', category: 'CLIENT_FOCUSED', status: 'AVAILABLE', estimatedEffort: 12, createdBy: m1.id, createdAt: new Date().toISOString() },
                 { id: uid(), title: 'Fix billing invoice formatting', description: 'Some invoices show wrong currency format.', category: 'CLIENT_FOCUSED', status: 'AVAILABLE', estimatedEffort: 4, createdBy: m1.id, createdAt: new Date().toISOString() },
                 { id: uid(), title: 'Customer feedback dashboard', description: 'Build a dashboard showing NPS scores.', category: 'CLIENT_FOCUSED', status: 'AVAILABLE', estimatedEffort: 16, createdBy: m2.id, createdAt: new Date().toISOString() },
@@ -104,16 +99,13 @@ export default function Footer() {
                 { id: uid(), title: 'Evaluate new caching strategy', description: 'Compare Redis Cluster vs Memcached.', category: 'R_AND_D', status: 'AVAILABLE', estimatedEffort: 6, createdBy: m4.id, createdAt: new Date().toISOString() },
                 { id: uid(), title: 'Build internal CLI tool', description: 'A command-line tool for common dev tasks.', category: 'R_AND_D', status: 'AVAILABLE', estimatedEffort: 8, createdBy: m3.id, createdAt: new Date().toISOString() },
                 { id: uid(), title: 'Client SSO integration', description: 'Support SAML-based single sign-on for enterprise clients.', category: 'CLIENT_FOCUSED', status: 'AVAILABLE', estimatedEffort: 18, createdBy: m1.id, createdAt: new Date().toISOString() },
-            ];
-            setBacklogEntries(entries);
+            ]);
             setPlanningCycles([]);
             setCategoryAllocations([]);
             setMemberPlans([]);
             setTaskAssignments([]);
             setProgressUpdates([]);
-
             setAppSettings({ setupComplete: true, dataVersion: 1 });
-            save();
             setCurrentUserId(null);
             setView('identity');
             showToast('Sample data loaded! Pick a person to get started.');

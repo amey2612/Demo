@@ -3,9 +3,10 @@ import { useAppContext } from '../context/AppContext';
 
 export default function PlanMyWork() {
     const {
-        view, setView, goHome, activeCycle, memberPlans, taskAssignments,
-        setTaskAssignments, getCatBudget, getCatClaimed, getEntry, catLabel,
-        currentUserId, save, showToast, uid, backlogEntries, planningCycles
+        view, setView, goHome, activeCycle, memberPlans, setMemberPlans,
+        taskAssignments, setTaskAssignments, setBacklogEntries, backlogEntries,
+        getCatBudget, getCatClaimed, getEntry, catLabel,
+        currentUserId, showToast, uid, planningCycles
     } = useAppContext();
 
     const [claimCatFilter, setClaimCatFilter] = useState({ CLIENT_FOCUSED: true, TECH_DEBT: true, R_AND_D: true });
@@ -33,8 +34,9 @@ export default function PlanMyWork() {
     const toggleReady = () => {
         const p = myPlan();
         if (p) {
-            p.isReady = !p.isReady;
-            save();
+            setMemberPlans(prev => prev.map(mp =>
+                mp.id === p.id ? { ...mp, isReady: !mp.isReady } : mp
+            ));
         }
     };
 
@@ -75,6 +77,8 @@ export default function PlanMyWork() {
         if (h > catRem) { setClaimError(`The ${catLabel(claimEntry.category)} budget only has ${catRem} hours left.`); return; }
 
         const p = myPlan();
+        const newTotalHours = myPlannedHours() + h;
+
         setTaskAssignments(prev => [...prev, {
             id: uid(),
             memberPlanId: p.id,
@@ -85,11 +89,18 @@ export default function PlanMyWork() {
             createdAt: new Date().toISOString()
         }]);
 
-        if (claimEntry.status === 'AVAILABLE') claimEntry.status = 'IN_PLAN';
-        p.totalPlannedHours = myPlannedHours() + h;
-        p.isReady = false;
+        // Update entry status to IN_PLAN if it was AVAILABLE
+        if (claimEntry.status === 'AVAILABLE') {
+            setBacklogEntries(prev => prev.map(e =>
+                e.id === claimEntry.id ? { ...e, status: 'IN_PLAN' } : e
+            ));
+        }
 
-        save();
+        // Update member plan
+        setMemberPlans(prev => prev.map(mp =>
+            mp.id === p.id ? { ...mp, totalPlannedHours: newTotalHours, isReady: false } : mp
+        ));
+
         setClaimModal(false);
         showToast(`Added! ${claimEntry.title} — ${h}h`);
         setView('planning');
@@ -114,11 +125,19 @@ export default function PlanMyWork() {
             if (delta > catRem) { setAssignError(`The ${catLabel(e.category)} budget only has ${catRem + oldH} hours left.`); return; }
         }
 
-        ta.committedHours = newH;
-        myPlan().totalPlannedHours = myPlannedHours();
-        myPlan().isReady = false;
+        setTaskAssignments(prev => prev.map(t =>
+            t.id === taId ? { ...t, committedHours: newH } : t
+        ));
+
+        const p = myPlan();
+        const newTotalHours = myAssignments().reduce((s, t) =>
+            s + (t.id === taId ? newH : t.committedHours), 0
+        );
+        setMemberPlans(prev => prev.map(mp =>
+            mp.id === p.id ? { ...mp, totalPlannedHours: newTotalHours, isReady: false } : mp
+        ));
+
         setEditingAssignId(null);
-        save();
         showToast('Hours updated!');
     };
 
@@ -127,19 +146,29 @@ export default function PlanMyWork() {
         const e = getEntry(ta.backlogEntryId);
 
         if (window.confirm(`Remove "${e?.title}"?\nThe ${ta.committedHours} hours will be freed up.`)) {
-            setTaskAssignments(prev => prev.filter(t => t.id !== taId));
-
             const c = activeCycle();
             const pids = memberPlans.filter(p => p.cycleId === c.id).map(p => p.id);
-            const still = taskAssignments.some(t => pids.includes(t.memberPlanId) && t.backlogEntryId === e.id);
+            // Check if any other assignment (other than this one) references this entry
+            const stillReferenced = taskAssignments.some(t =>
+                t.id !== taId && pids.includes(t.memberPlanId) && t.backlogEntryId === e.id
+            );
 
-            if (!still && e.status === 'IN_PLAN') e.status = 'AVAILABLE';
+            setTaskAssignments(prev => prev.filter(t => t.id !== taId));
+
+            if (!stillReferenced && e.status === 'IN_PLAN') {
+                setBacklogEntries(prev => prev.map(entry =>
+                    entry.id === e.id ? { ...entry, status: 'AVAILABLE' } : entry
+                ));
+            }
 
             const p = myPlan();
-            p.totalPlannedHours = myPlannedHours();
-            p.isReady = false;
+            const newTotalHours = myAssignments()
+                .filter(t => t.id !== taId)
+                .reduce((s, t) => s + t.committedHours, 0);
+            setMemberPlans(prev => prev.map(mp =>
+                mp.id === p.id ? { ...mp, totalPlannedHours: newTotalHours, isReady: false } : mp
+            ));
 
-            save();
             showToast('Removed!');
         }
     };

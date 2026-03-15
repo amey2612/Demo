@@ -3,9 +3,9 @@ import { useAppContext } from '../context/AppContext';
 
 export default function ProgressUpdate() {
     const {
-        goHome, frozenCycle, memberPlans, currentUserId, taskAssignments,
-        getEntry, catLabel, statusLabel, uid, save, showToast,
-        setProgressUpdates, taskAssignments: allTAs
+        goHome, frozenCycle, memberPlans, currentUserId, taskAssignments, setTaskAssignments,
+        getEntry, catLabel, statusLabel, uid, showToast,
+        setProgressUpdates
     } = useAppContext();
 
     const cycle = frozenCycle();
@@ -76,12 +76,13 @@ export default function ProgressUpdate() {
             updatedBy: currentUserId
         }]);
 
-        const real = allTAs.find(t => t.id === ta.id);
-        if (real) {
-            real.hoursCompleted = h;
-            real.progressStatus = finalStatus;
-            save();
-        }
+        // Immutable update of the task assignment
+        setTaskAssignments(prev => prev.map(t =>
+            t.id === ta.id ? { ...t, hoursCompleted: h, progressStatus: finalStatus } : t
+        ));
+
+        // Update the local progressTA so the modal reflects new values if reopened
+        setProgressTA(prev => ({ ...prev, hoursCompleted: h, progressStatus: finalStatus }));
 
         setProgressModal(false);
         showToast('Progress saved!');

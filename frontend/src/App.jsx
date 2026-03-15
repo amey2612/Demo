@@ -18,7 +18,11 @@ import MemberDrillDown from './components/MemberDrillDown';
 import TaskDrillDown from './components/TaskDrillDown';
 
 function App() {
-  const { theme, view, toast, showToast, errorMsg, showError, appSettings, currentUserId } = useAppContext();
+  const {
+    theme, view, toast, showToast, errorMsg, showError,
+    confirmModal, setConfirmModal, confirmTitle, confirmText,
+    confirmAction, confirmYes, confirmDanger
+  } = useAppContext();
 
   // Route views
   const renderView = () => {
@@ -70,6 +74,33 @@ function App() {
       </main>
 
       <Footer />
+
+      {/* CONFIRM MODAL */}
+      {confirmModal && (
+        <div className="modal is-active">
+          <div className="modal-background" onClick={() => setConfirmModal(false)}></div>
+          <div className="modal-card">
+            <header className="modal-card-head">
+              <p className="modal-card-title">{confirmTitle}</p>
+              <button className="delete" onClick={() => setConfirmModal(false)}></button>
+            </header>
+            <section className="modal-card-body">
+              <p>{confirmText}</p>
+            </section>
+            <footer className="modal-card-foot">
+              <button
+                className={`button ${confirmDanger ? 'btn-danger' : 'btn-primary'}`}
+                onClick={() => { confirmAction && confirmAction(); setConfirmModal(false); }}
+              >
+                {confirmYes}
+              </button>
+              <button className="button btn-secondary" onClick={() => setConfirmModal(false)}>
+                No, Go Back
+              </button>
+            </footer>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -4,9 +4,9 @@ import { useAppContext } from '../context/AppContext';
 export default function FreezeReview() {
     const {
         goHome, activeCycle, getCatBudget, getCatClaimed, catLabel,
-        getMember, getEntry, showConfirm, showError, showToast, save, setView,
+        getMember, getEntry, showConfirm, showError, showToast, setView,
         memberPlans, taskAssignments, setTaskAssignments, setMemberPlans,
-        setCategoryAllocations, setPlanningCycles
+        setCategoryAllocations, setPlanningCycles, setBacklogEntries
     } = useAppContext();
 
     const [freezeDetailMember, setFreezeDetailMember] = React.useState(null);
@@ -45,9 +45,9 @@ export default function FreezeReview() {
     const confirmFreeze = () => {
         showConfirm('Freeze the Plan?', 'After this, nobody can change their hours. Team members will only report progress.', () => {
             if (freezeErrors().length > 0) { showError('Validation failed.'); return; }
-            const c = activeCycle();
-            c.state = 'FROZEN';
-            save();
+            setPlanningCycles(prev => prev.map(c =>
+                c.id === cycle.id ? { ...c, state: 'FROZEN' } : c
+            ));
             showToast('The plan is frozen! Team members can now report progress.');
             goHome();
         }, 'Yes, Freeze It');
@@ -58,21 +58,20 @@ export default function FreezeReview() {
             const c = cycle;
             const pids = memberPlans.filter(p => p.cycleId === c.id).map(p => p.id);
             const affectedEntryIds = [...new Set(taskAssignments.filter(t => pids.includes(t.memberPlanId)).map(t => t.backlogEntryId))];
+            const remainingAssignments = taskAssignments.filter(t => !pids.includes(t.memberPlanId));
+            const entriesToReset = affectedEntryIds.filter(eid =>
+                !remainingAssignments.some(t => t.backlogEntryId === eid)
+            );
 
             setTaskAssignments(prev => prev.filter(t => !pids.includes(t.memberPlanId)));
             setMemberPlans(prev => prev.filter(p => p.cycleId !== c.id));
             setCategoryAllocations(prev => prev.filter(a => a.cycleId !== c.id));
-
-            for (const eid of affectedEntryIds) {
-                const e = getEntry(eid);
-                if (e && e.status === 'IN_PLAN') {
-                    const anyRef = taskAssignments.some(t => t.backlogEntryId === eid);
-                    if (!anyRef) e.status = 'AVAILABLE';
-                }
-            }
-
+            setBacklogEntries(prev => prev.map(e =>
+                entriesToReset.includes(e.id) && e.status === 'IN_PLAN'
+                    ? { ...e, status: 'AVAILABLE' }
+                    : e
+            ));
             setPlanningCycles(prev => prev.filter(x => x.id !== c.id));
-            save();
             showToast('Planning has been canceled.');
             setView('hub');
         }, 'Yes, Cancel Planning', true);
