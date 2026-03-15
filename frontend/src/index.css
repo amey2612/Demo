@@ -685,6 +685,38 @@ div {
   background: var(--primary);
 }
 
+/* Override Bulma's hardcoded white background on .section and main */
+.section {
+  background: var(--bg) !important;
+  color: var(--text-primary) !important;
+  min-height: calc(100vh - 58px);
+}
+
+/* Ensure all plain text elements inherit the theme color */
+main,
+section,
+article,
+aside,
+header,
+footer {
+  background: var(--bg);
+  color: var(--text-primary);
+}
+
+.container {
+  background: transparent !important;
+}
+
+/* Subtitle / helper text always readable */
+.subtitle {
+  color: var(--text-secondary) !important;
+}
+
+/* Ensure Bulma's generic .notification base doesn't override our colors */
+.notification {
+  color: var(--text-primary) !important;
+}
+
 /* Columns */
 .columns {
   margin: 0 !important;
